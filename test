@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examen Tipo Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        #fileInput, #topicSelect, #numQuestions, #startButton, #clearDataButton {
+            margin-bottom: 20px;
+        }
+        #quizContainer {
+            display: none;
+        }
+        .question {
+            margin-bottom: 20px;
+        }
+        .options label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #clearDataButton {
+            background-color: #f44336;
+        }
+        #clearDataButton:hover {
+            background-color: #d32f2f;
+        }
+        input[type="number"] {
+            padding: 5px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Examen Tipo Test</h1>
+        <input type="file" id="fileInput" accept=".csv">
+        <select id="topicSelect">
+            <option value="all">Todos los temas</option>
+        </select>
+        <input type="number" id="numQuestions" min="1" value="10" placeholder="Número de preguntas">
+        <button id="startButton">Comenzar examen</button>
+        <button id="clearDataButton">Borrar datos guardados</button>
+        <div id="quizContainer"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script>
+        let questions = [];
+        let currentQuiz = [];
+
+        window.addEventListener('load', loadQuestionsFromStorage);
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            Papa.parse(file, {
+                complete: function(results) {
+                    questions = results.data.slice(1);
+                    saveQuestionsToStorage();
+                    updateTopicSelect();
+                }
+            });
+        });
+
+        function loadQuestionsFromStorage() {
+            const storedQuestions = localStorage.getItem('quizQuestions');
+            if (storedQuestions) {
+                questions = JSON.parse(storedQuestions);
+                updateTopicSelect();
+            }
+        }
+
+        function saveQuestionsToStorage() {
+            localStorage.setItem('quizQuestions', JSON.stringify(questions));
+        }
+
+        function updateTopicSelect() {
+            const topicSelect = document.getElementById('topicSelect');
+            topicSelect.innerHTML = '<option value="all">Todos los temas</option>';
+            const topics = [...new Set(questions.map(q => q[0]))];
+            topics.forEach(topic => {
+                const option = document.createElement('option');
+                option.value = topic;
+                option.textContent = topic;
+                topicSelect.appendChild(option);
+            });
+        }
+
+        document.getElementById('startButton').addEventListener('click', startQuiz);
+        document.getElementById('clearDataButton').addEventListener('click', clearStoredData);
+
+        function startQuiz() {
+            const topic = document.getElementById('topicSelect').value;
+            const numQuestions = parseInt(document.getElementById('numQuestions').value);
+            const filteredQuestions = topic === 'all' ? questions : questions.filter(q => q[0] === topic);
+            
+            if (filteredQuestions.length < numQuestions) {
+                alert(`Solo hay ${filteredQuestions.length} preguntas disponibles para este tema. Se usarán todas las preguntas disponibles.`);
+                currentQuiz = filteredQuestions;
+            } else {
+                currentQuiz = getRandomQuestions(filteredQuestions, numQuestions);
+            }
+            
+            displayQuiz();
+        }
+
+        function getRandomQuestions(questions, n) {
+            const shuffled = [...questions].sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, n);
+        }
+
+        function displayQuiz() {
+            const quizContainer = document.getElementById('quizContainer');
+            quizContainer.innerHTML = '';
+            quizContainer.style.display = 'block';
+
+            currentQuiz.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+                questionDiv.innerHTML = `
+                    <p><strong>Pregunta ${index + 1}:</strong> ${question[1]}</p>
+                    <div class="options">
+                        ${['A', 'B', 'C', 'D'].map((letter, i) => `
+                            <label>
+                                <input type="radio" name="q${index}" value="${letter}">
+                                ${letter}: ${question[i + 2]}
+                            </label>
+                        `).join('')}
+                    </div>
+                `;
+                quizContainer.appendChild(questionDiv);
+            });
+
+            const submitButton = document.createElement('button');
+            submitButton.id = 'submitButton';
+            submitButton.textContent = 'Enviar respuestas';
+            submitButton.addEventListener('click', checkAnswers);
+            quizContainer.appendChild(submitButton);
+        }
+
+        function checkAnswers() {
+            let score = 0;
+            currentQuiz.forEach((question, index) => {
+                const selectedAnswer = document.querySelector(`input[name="q${index}"]:checked`);
+                if (selectedAnswer && selectedAnswer.value === question[6]) {
+                    score++;
+                }
+            });
+            alert(`Has acertado ${score} de ${currentQuiz.length} preguntas.`);
+        }
+
+        function clearStoredData() {
+            localStorage.removeItem('quizQuestions');
+            questions = [];
+            updateTopicSelect();
+            alert('Los datos guardados han sido borrados.');
+        }
+    </script>
+</body>
+</html>
